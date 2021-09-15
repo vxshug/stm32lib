@@ -29,7 +29,7 @@ C_DEFS =  \
 -DSTM32F103xB
 AS_INCLUDES = 
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES_LINK) $(OPT) -Wall -fdata-sections -ffunction-sections
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDE_LINK) $(OPT) -Wall -fdata-sections -ffunction-sections
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
 endif
@@ -66,5 +66,6 @@ clean:
 	$(RM) $(BUILD_DIR)
 upload:
 	openocd -f ./stm32f103c8_blue_pill.cfg -c "program $(BUILD_DIR)/$(TARGET).elf verify reset exit"
-
--include $(wildcard $(OBJECTS:.o=.c))
+gdb:
+	openocd -f ./stm32f103c8_blue_pill.cfg 
+-include $(wildcard $(OBJECTS:.o=.d))
