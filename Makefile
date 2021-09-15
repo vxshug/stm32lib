@@ -1,27 +1,70 @@
-TARGET=test
-CC=arm-none-eabi-gcc
-OBJCOPY=arm-none-eabi-objcopy
+TARGET=main
+DEBUG = 1
+OPT = -Og
 RM=rm -rf
-CORE=3
-BUILDDIR=build
-CPUFLAGS=-mthumb -mcpu=cortex-m$(CORE)
-LDFLAGS = -T STM32F103C8Tx_FLASH.ld -Wl,-cref,-u,Reset_Handler -Wl,-Map=$(BUILDDIR)/$(TARGET).map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x80 -Wl,--start-group -lc -lm -Wl,--end-group
-CFLAGS=-g -o
-$(TARGET):$(BUILDDIR)/startup_stm32f103xb.o $(BUILDDIR)/main.o | $(BUILDDIR)
-	$(CC) $^ $(CPUFLAGS) $(LDFLAGS) $(CFLAGS) $(BUILDDIR)/$(TARGET).elf
-$(BUILDDIR)/startup_stm32f103xb.o:startup_stm32f103xb.s | $(BUILDDIR)
-	$(CC) -c $^ $(CPUFLAGS) $(CFLAGS) $@
-$(BUILDDIR)/main.o:main.c | $(BUILDDIR)
-	$(CC) -c $^ $(CPUFLAGS) $(CFLAGS) $@
+ASM_SOURCES = startup_stm32f103xb.s
+LDSCRIPT = STM32F103C8Tx_FLASH.ld
 
-$(BUILDDIR):
+MD = mkdir -p
+PREFIX = arm-none-eabi-
+CC = $(PREFIX)gcc
+AS = $(PREFIX)gcc -x assembler-with-cpp
+CP = $(PREFIX)objcopy
+SZ = $(PREFIX)size
+HEX = $(CP) -O ihex
+BIN = $(CP) -O binary -S
+
+INCLUDE_DIR_NAME = include
+INCLUDE_DIRS = $(subst ./,, $(shell find -depth -name include))
+C_INCLUDE_LINK = $(addprefix -I,$(INCLUDE_DIRS))
+#找到头文件目录
+C_SRC = $(subst ./,, $(shell find -name "*.c"))
+BUILD_DIR = build
+OBJECTS = $(addprefix $(BUILD_DIR)/,$(C_SRC:.c=.o))
+CPU = -mcpu=cortex-m3
+MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+AS_DEFS = 
+C_DEFS =  \
+-DUSE_HAL_DRIVER \
+-DSTM32F103xB
+AS_INCLUDES = 
+ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES_LINK) $(OPT) -Wall -fdata-sections -ffunction-sections
+ifeq ($(DEBUG), 1)
+CFLAGS += -g -gdwarf-2
+endif
+CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
+
+# libraries
+LIBS = -lc -lm -lnosys 
+LIBDIR = 
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
+
+all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
+
+$(OBJECTS):$(BUILD_DIR)/%.o:%.c 
+	$(MD) $(@D)
+	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
+
+$(BUILD_DIR)/$(ASM_SOURCES:.s=.o): $(ASM_SOURCES) Makefile | $(BUILD_DIR)
+	$(AS) -c $(CFLAGS) $< -o $@
+$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) $(BUILD_DIR)/$(ASM_SOURCES:.s=.o) Makefile
+	$(CC) $(OBJECTS) $(BUILD_DIR)/$(ASM_SOURCES:.s=.o) $(LDFLAGS) -o $@
+	$(SZ) $@
+$(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+	$(HEX) $< $@
+	
+$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+	$(BIN) $< $@	
+$(BUILD_DIR):
 	mkdir $@		
 bin:
-	$(OBJCOPY) $(BUILDDIR)/$(TARGET).elf $(BUILDDIR)/$(TARGET).bin
+	$(OBJCOPY) $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin
 hex:
-	$(OBJCOPY) $(BUILDDIR)/$(TARGET).elf -Oihex $(BUILDDIR)/$(TARGET).hex
+	$(OBJCOPY) $(BUILD_DIR)/$(TARGET).elf -Oihex $(BUILD_DIR)/$(TARGET).hex
 clean:
-	$(RM) $(BUILDDIR)
+	$(RM) $(BUILD_DIR)
 upload:
-	openocd -f ./stm32f103c8_blue_pill.cfg -c "program $(BUILDDIR)/$(TARGET).elf verify reset exit"
+	openocd -f ./stm32f103c8_blue_pill.cfg -c "program $(BUILD_DIR)/$(TARGET).elf verify reset exit"
 
+-include $(wildcard $(OBJECTS:.o=.c))
