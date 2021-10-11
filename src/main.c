@@ -1,5 +1,4 @@
-#include "stm32f10x.h"
-#include "stm32f10x_gpio.h"
+#include "stm32f10x_conf.h"
 
 int main()
 {
@@ -10,14 +9,6 @@ int main()
 	*(unsigned int*)(0x40021000+0x18) |= 1<<2;
 	
 	/* 配置PB0为推挽输出 */
-        GPIOA->CRL |= 1<<(4*3);
-        GPIOA->CRL |= 1<<(4*2);
-        GPIOA->CRL |= 1<<(4*1);
         //GPIOA->ODR &= ~(1<<3);
-        GPIO_SetBits(GPIOA, GPIO_Pin_1);
         while(1);
-}
-void SystemInit(void)
-{
-
 }

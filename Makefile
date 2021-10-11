@@ -15,8 +15,8 @@ HEX = $(CP) -O ihex
 BIN = $(CP) -O binary -S
 
 INCLUDE_DIR_NAME = include
-INCLUDE_DIRS = $(subst ./,, $(shell find -depth -name include))
-C_INCLUDE_LINK = $(addprefix -I,$(INCLUDE_DIRS))
+INCLUDE_DIRS = $(subst ./,, $(shell find  -name "*.h"))
+C_INCLUDE_LINK = $(sort $(addprefix -I,$(dir $(INCLUDE_DIRS))))
 #找到头文件目录
 C_SRC = $(subst ./,, $(shell find -name "*.c"))
 BUILD_DIR = build
@@ -26,7 +26,10 @@ MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
 AS_DEFS = 
 C_DEFS =  \
 -DUSE_HAL_DRIVER \
--DSTM32F103xB
+-DUSE_STDPERIPH_DRIVER \
+-DSTM32F10X_MD \
+-DSTM32F103xB 
+#-DUSE_STDPERIPH_DRIVER 
 AS_INCLUDES = 
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDE_LINK) $(OPT) -Wall -fdata-sections -ffunction-sections
